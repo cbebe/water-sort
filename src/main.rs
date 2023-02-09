@@ -1,6 +1,6 @@
-use std::fmt::Display;
-
 use ansi_term::{Colour, Style};
+use rustyline::{error::ReadlineError, Editor, Result};
+use std::fmt::Display;
 
 #[derive(Clone, Copy, Debug)]
 #[allow(dead_code)]
@@ -17,6 +17,31 @@ enum Water {
     Purple,
     Red,
     Yellow,
+    Unknown,
+}
+
+impl From<&&str> for Water {
+    fn from(value: &&str) -> Self {
+        use Water::*;
+        match *value {
+            "b" | "bl" | "blue" => Blue,
+            "br" | "brown" => Brown,
+            "c" | "cy" | "cyan" => Cyan,
+            "g" | "green" => Green,
+            "gr" | "grey" | "gray" => Grey,
+            "l" | "lime" => Lime,
+            "ol" | "olive" => Olive,
+            "o" | "or" => Orange,
+            "p" | "pi" => Pink,
+            "pu" | "purple" => Purple,
+            "r" | "red" => Red,
+            "y" | "yellow" => Yellow,
+            unknown => {
+                println!("unknown colour: {}", unknown);
+                Unknown
+            }
+        }
+    }
 }
 
 impl Water {
@@ -35,6 +60,7 @@ impl Water {
             Water::Purple => RGB(113, 43, 147),
             Water::Red => RGB(197, 42, 35),
             Water::Yellow => RGB(241, 217, 87),
+            Water::Unknown => RGB(255, 255, 255),
         }
     }
 
@@ -93,24 +119,14 @@ struct Puzzle(Vec<Tube>);
 impl Display for Puzzle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let size = self.0.len();
-        let (top, bottom) = if let 0 = size % 2 {
-            (size / 2, size / 2)
+        let mid = if let 0 = size % 2 {
+            size / 2
         } else {
-            (size / 2 + 1, size / 2)
+            size / 2 + 1
         };
-        for row in 0..4 {
-            for tube in 0..top - 1 {
-                f.write_fmt(format_args!("|{}| ", self.0[tube].0[row]))?
-            }
-            f.write_fmt(format_args!("|{}|\n", self.0[top - 1].0[row]))?
-        }
+        self.print_row(f, 0, mid)?;
         f.write_str("-------------------------\n")?;
-        for row in 0..4 {
-            for tube in bottom..size - 1 {
-                f.write_fmt(format_args!("|{}| ", self.0[tube].0[row]))?
-            }
-            f.write_fmt(format_args!("|{}|\n", self.0[size - 1].0[row]))?
-        }
+        self.print_row(f, mid, size)?;
         Ok(())
     }
 }
@@ -123,10 +139,82 @@ impl Puzzle {
         tubes.push(Tube::empty());
         Self(tubes)
     }
+
+    fn print_row(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        start: usize,
+        end: usize,
+    ) -> std::fmt::Result {
+        f.write_fmt(format_args!("{:2}", " "))?;
+        for tube in start..end - 1 {
+            f.write_fmt(format_args!("{:3}   ", tube))?;
+        }
+        f.write_fmt(format_args!("{:3}\n", end - 1))?;
+        for row in 0..4 {
+            f.write_fmt(format_args!("{} ", row))?;
+            for tube in start..end - 1 {
+                f.write_fmt(format_args!("|{}| ", self.0[tube].0[row]))?
+            }
+            f.write_fmt(format_args!("|{}|\n", self.0[end - 1].0[row]))?
+        }
+        Ok(())
+    }
 }
 
-fn main() {
+fn main() -> Result<()> {
     let mut puzzle = Puzzle::new(12);
-    puzzle.0[0].0[3] = State::Sticky(Water::Blue);
-    println!("{}", puzzle);
+    let mut rl = Editor::<()>::new()?;
+    if rl.load_history("history.txt").is_err() {
+        println!("No previous history.");
+    }
+    loop {
+        let readline = rl.readline(">> ");
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str());
+                let arr = line.split(" ").map(|s| s.trim()).collect::<Vec<&str>>();
+                match arr[0] {
+                    "i" | "init" => {
+                        if let Some(size) = parse_int(arr.get(1)) {
+                            puzzle = Puzzle::new(size);
+                        } else {
+                            eprintln!("usage: init <size>")
+                        }
+                    }
+                    "s" | "set" => {
+                        if let (Some(tube), Some(idx), Some(colour)) = (
+                            parse_int(arr.get(1)),
+                            parse_int(arr.get(2)),
+                            arr.get(3)
+                                .and_then(|s| <&&str as TryInto<Water>>::try_into(s).ok()),
+                        ) {
+                            puzzle.0[tube].0[idx] = State::Sticky(colour)
+                        } else {
+                            eprintln!("usage: set <tube> <idx> <colour>")
+                        }
+                    }
+                    "p" | "print" => println!("{}", puzzle),
+                    a => println!("Unrecognized command: {}", a),
+                }
+            }
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
+            }
+        }
+    }
+    rl.save_history("history.txt")
+}
+
+fn parse_int(i: Option<&&str>) -> Option<usize> {
+    i.and_then(|s| s.parse::<usize>().ok())
 }
