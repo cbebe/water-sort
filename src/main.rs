@@ -191,7 +191,13 @@ fn main() -> rustyline::Result<()> {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                let arr = line.split(' ').map(|s| s.trim()).collect::<Vec<&str>>();
+                let arr = line
+                    .split(' ')
+                    .filter_map(|s| match s.trim() {
+                        s if s.len() > 0 => Some(s),
+                        _ => None,
+                    })
+                    .collect::<Vec<&str>>();
                 match arr[0] {
                     "i" | "init" => match parse_int(arr.get(1)) {
                         Some(size) if size > 2 => puzzle = Puzzle::new(size),
