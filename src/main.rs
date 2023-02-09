@@ -1,15 +1,16 @@
 use ansi_term::{Colour, Style};
-use rustyline::{error::ReadlineError, Editor, Result};
-use std::fmt::Display;
+use rustyline::{self, error::ReadlineError, Editor};
+use serde::{Deserialize, Serialize};
+use serde_json;
+use std::{fmt::Display, fs};
 
-#[derive(Clone, Copy, Debug)]
-#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 enum Water {
+    Ash,
     Blue,
     Brown,
     Cyan,
     Green,
-    Grey,
     Lime,
     Olive,
     Orange,
@@ -17,29 +18,32 @@ enum Water {
     Purple,
     Red,
     Yellow,
-    Unknown,
 }
 
-impl From<&&str> for Water {
-    fn from(value: &&str) -> Self {
+enum WaterError {
+    Empty,
+    UnknownColour,
+}
+
+impl TryFrom<&&str> for Water {
+    type Error = WaterError;
+
+    fn try_from(value: &&str) -> std::result::Result<Self, Self::Error> {
         use Water::*;
         match *value {
-            "b" | "bl" | "blue" => Blue,
-            "br" | "brown" => Brown,
-            "c" | "cy" | "cyan" => Cyan,
-            "g" | "green" => Green,
-            "gr" | "grey" | "gray" => Grey,
-            "l" | "lime" => Lime,
-            "ol" | "olive" => Olive,
-            "o" | "or" => Orange,
-            "p" | "pi" => Pink,
-            "pu" | "purple" => Purple,
-            "r" | "red" => Red,
-            "y" | "yellow" => Yellow,
-            unknown => {
-                println!("unknown colour: {}", unknown);
-                Unknown
-            }
+            "a" | "ash" => Ok(Ash),
+            "b" | "bl" | "blue" => Ok(Blue),
+            "br" | "brown" => Ok(Brown),
+            "c" | "cy" | "cyan" => Ok(Cyan),
+            "g" | "green" => Ok(Green),
+            "l" | "lime" => Ok(Lime),
+            "ol" | "olive" => Ok(Olive),
+            "o" | "or" => Ok(Orange),
+            "p" | "pi" | "pink" => Ok(Pink),
+            "pu" | "purple" => Ok(Purple),
+            "r" | "red" => Ok(Red),
+            "y" | "yellow" => Ok(Yellow),
+            _ => Err(WaterError::UnknownColour),
         }
     }
 }
@@ -52,7 +56,7 @@ impl Water {
             Water::Brown => RGB(126, 74, 7),
             Water::Cyan => RGB(84, 163, 228),
             Water::Green => RGB(17, 101, 51),
-            Water::Grey => RGB(99, 100, 101),
+            Water::Ash => RGB(99, 100, 101),
             Water::Lime => RGB(98, 214, 124),
             Water::Olive => RGB(120, 150, 15),
             Water::Orange => RGB(232, 140, 66),
@@ -60,7 +64,6 @@ impl Water {
             Water::Purple => RGB(113, 43, 147),
             Water::Red => RGB(197, 42, 35),
             Water::Yellow => RGB(241, 217, 87),
-            Water::Unknown => RGB(255, 255, 255),
         }
     }
 
@@ -75,8 +78,7 @@ impl Display for Water {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug)]
-#[allow(dead_code)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 enum State {
     #[default]
     Unknown,
@@ -104,16 +106,32 @@ impl Display for State {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
 struct Tube([State; 4]);
 
 impl Tube {
     const fn empty() -> Self {
         Self([State::Empty, State::Empty, State::Empty, State::Empty])
     }
+
+    #[allow(dead_code)]
+    fn top(&self) -> State {
+        use State::Empty;
+        match (self.0[0], self.0[1], self.0[2], self.0[3]) {
+            (s, Empty, Empty, Empty) => s,
+            (_, s, Empty, Empty) => s,
+            (_, _, s, Empty) => s,
+            (_, _, _, s) => s,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn has_space(&self) -> bool {
+        matches!(self.0[3], State::Empty)
+    }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct Puzzle(Vec<Tube>);
 
 impl Display for Puzzle {
@@ -162,7 +180,7 @@ impl Puzzle {
     }
 }
 
-fn main() -> Result<()> {
+fn main() -> rustyline::Result<()> {
     let mut puzzle = Puzzle::new(12);
     let mut rl = Editor::<()>::new()?;
     if rl.load_history("history.txt").is_err() {
@@ -173,25 +191,76 @@ fn main() -> Result<()> {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                let arr = line.split(" ").map(|s| s.trim()).collect::<Vec<&str>>();
+                let arr = line.split(' ').map(|s| s.trim()).collect::<Vec<&str>>();
                 match arr[0] {
-                    "i" | "init" => {
-                        if let Some(size) = parse_int(arr.get(1)) {
-                            puzzle = Puzzle::new(size);
+                    "i" | "init" => match parse_int(arr.get(1)) {
+                        Some(size) if size > 2 => puzzle = Puzzle::new(size),
+                        Some(_) => eprintln!("size must be greater than 2"),
+                        None => eprintln!("usage: init <size>"),
+                    },
+                    "load" => {
+                        match arr
+                            .get(1)
+                            // TODO: Handle errors
+                            .and_then(|f| fs::read_to_string(f).ok())
+                            .and_then(|s| serde_json::from_str::<Puzzle>(&s).ok())
+                        {
+                            Some(p) => {
+                                puzzle = p;
+                                println!("{}", puzzle);
+                            }
+                            None => eprintln!("error loading file"),
+                        }
+                    }
+                    "save" => {
+                        if let Ok(json) = serde_json::to_string(&puzzle) {
+                            // TODO: Handle errors
+                            if let None = arr.get(1).and_then(|s| fs::write(s, json).ok()) {
+                                eprintln!("error saving puzzle");
+                            }
                         } else {
-                            eprintln!("usage: init <size>")
+                            eprintln!("error serializing puzzle");
+                        }
+                    }
+                    "u" | "unset" => {
+                        let size = puzzle.0.len();
+                        match (parse_int(arr.get(1)), parse_int(arr.get(2))) {
+                            (Some(tube), Some(idx)) if tube < size && idx < 4 => {
+                                puzzle.0[tube].0[idx] = State::Empty;
+                            }
+                            (Some(tube), _) if tube >= size => {
+                                eprintln!("tube number must be between 0 and {}", size - 1);
+                            }
+                            (_, Some(idx)) if idx >= 4 => {
+                                eprintln!("index must be between 0 and 3");
+                            }
+                            (_, _) => {
+                                eprintln!("usage: unset <tube> <idx>");
+                            }
                         }
                     }
                     "s" | "set" => {
-                        if let (Some(tube), Some(idx), Some(colour)) = (
+                        let size = puzzle.0.len();
+                        match (
                             parse_int(arr.get(1)),
                             parse_int(arr.get(2)),
-                            arr.get(3)
-                                .and_then(|s| <&&str as TryInto<Water>>::try_into(s).ok()),
+                            parse_water(arr.get(3)),
                         ) {
-                            puzzle.0[tube].0[idx] = State::Sticky(colour)
-                        } else {
-                            eprintln!("usage: set <tube> <idx> <colour>")
+                            (Some(tube), Some(idx), Ok(colour)) if tube < size && idx < 4 => {
+                                puzzle.0[tube].0[idx] = State::Sticky(colour);
+                            }
+                            (Some(tube), _, _) if tube >= size => {
+                                eprintln!("tube number must be between 0 and {}", size - 1);
+                            }
+                            (_, Some(idx), _) if idx >= 4 => {
+                                eprintln!("index must be between 0 and 3");
+                            }
+                            (_, _, Err(WaterError::UnknownColour)) => {
+                                eprintln!("unknown colour: {}", arr[3]);
+                            }
+                            (_, _, _) => {
+                                eprintln!("usage: set <tube> <idx> <colour>");
+                            }
                         }
                     }
                     "p" | "print" => println!("{}", puzzle),
@@ -217,4 +286,9 @@ fn main() -> Result<()> {
 
 fn parse_int(i: Option<&&str>) -> Option<usize> {
     i.and_then(|s| s.parse::<usize>().ok())
+}
+
+fn parse_water(w: Option<&&str>) -> std::result::Result<Water, WaterError> {
+    w.ok_or(WaterError::Empty)
+        .and_then(|s| <&&str as TryInto<Water>>::try_into(s))
 }
