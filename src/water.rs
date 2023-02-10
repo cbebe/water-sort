@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub enum Water {
     Ash,
     Blue,
@@ -68,14 +68,13 @@ impl Water {
             Self::Yellow => RGB(241, 217, 87),
         }
     }
-
-    pub fn style(self) -> ansi_term::Style {
-        ansi_term::Style::new().on(self.get_colour())
-    }
 }
 
 impl std::fmt::Display for Water {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.style().paint("   ").fmt(f)
+        ansi_term::Style::new()
+            .on(self.get_colour())
+            .paint("   ")
+            .fmt(f)
     }
 }

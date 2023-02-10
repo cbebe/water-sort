@@ -4,6 +4,7 @@ use std::fs;
 
 mod puzzle;
 mod repl;
+mod state;
 mod tube;
 mod water;
 
@@ -33,7 +34,7 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
             let size = puzzle.size();
             match (parse_int(args.first()), parse_int(args.get(1))) {
                 (Some(tube), Some(idx)) if tube < size && idx < 4 => {
-                    puzzle.set_tube(tube, idx, tube::State::Empty);
+                    puzzle.set_tube(tube, idx, state::State::Empty);
                     Ok(())
                 }
                 (Some(tube), _) if tube >= size => Err(Error::InvalidTubeNumber(size)),
@@ -49,7 +50,7 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                 water::Water::try_from(args.get(2)),
             ) {
                 (Some(tube), Some(idx), Ok(colour)) if tube < size && idx < 4 => {
-                    puzzle.set_tube(tube, idx, tube::State::Sticky(colour));
+                    puzzle.set_tube(tube, idx, state::State::Water(colour));
                     Ok(())
                 }
                 (Some(tube), _, _) if tube >= size => Err(Error::InvalidTubeNumber(size)),

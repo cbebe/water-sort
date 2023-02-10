@@ -1,10 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Puzzle(Vec<crate::tube::Tube>);
 
-impl Display for Puzzle {
+impl std::fmt::Display for Puzzle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let size = self.0.len();
         let mid = if size % 2 == 0 {
@@ -28,7 +25,7 @@ impl Puzzle {
         Self(tubes)
     }
 
-    pub fn set_tube(&mut self, tube: usize, idx: usize, state: crate::tube::State) {
+    pub fn set_tube(&mut self, tube: usize, idx: usize, state: crate::state::State) {
         self.0[tube].set(idx, state);
     }
 
