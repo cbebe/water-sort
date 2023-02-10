@@ -122,9 +122,10 @@ fn process_line(puzzle: &mut puzzle::Puzzle, line: &str) -> Result<(), Error> {
 }
 
 fn main() -> rustyline::Result<()> {
+    let histfile = std::env::var("WATER_HISTFILE").unwrap_or_else(|_| "history.txt".to_owned());
     let mut puzzle = puzzle::Puzzle::new(12);
     let mut rl = Editor::<()>::new()?;
-    if rl.load_history("history.txt").is_err() {
+    if rl.load_history(&histfile).is_err() {
         println!("No previous history.");
     }
     loop {
@@ -150,7 +151,7 @@ fn main() -> rustyline::Result<()> {
             }
         }
     }
-    rl.save_history("history.txt")
+    rl.save_history(&histfile)
 }
 
 fn parse_int(i: Option<&&str>) -> Option<usize> {
