@@ -28,11 +28,11 @@ impl TryFrom<Option<&&str>> for Water {
     }
 }
 
-impl TryFrom<&&str> for Water {
+impl TryFrom<&str> for Water {
     type Error = ParseError;
 
-    fn try_from(value: &&str) -> std::result::Result<Self, Self::Error> {
-        match *value {
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
             "a" | "ash" => Ok(Self::Ash),
             "b" | "bl" | "blue" => Ok(Self::Blue),
             "br" | "brown" => Ok(Self::Brown),
@@ -45,8 +45,16 @@ impl TryFrom<&&str> for Water {
             "pu" | "purple" => Ok(Self::Purple),
             "r" | "red" => Ok(Self::Red),
             "y" | "yellow" => Ok(Self::Yellow),
-            _ => Err(ParseError::UnknownColour),
+            _ => Err(Self::Error::UnknownColour),
         }
+    }
+}
+
+impl TryFrom<&&str> for Water {
+    type Error = ParseError;
+
+    fn try_from(value: &&str) -> std::result::Result<Self, Self::Error> {
+        Self::try_from(*value)
     }
 }
 

@@ -1,6 +1,6 @@
 use repl::{Error, Usage};
 use rustyline::{self, error::ReadlineError, Editor};
-use std::fs;
+use water::Water;
 
 mod puzzle;
 mod repl;
@@ -18,7 +18,7 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
         }
         "load" => {
             let file = args.first().ok_or(Error::Usage(Usage::Load))?;
-            let json = fs::read_to_string(file)?;
+            let json = std::fs::read_to_string(file)?;
             let loaded_puzzle = serde_json::from_str::<puzzle::Puzzle>(&json)?;
             puzzle.reset(loaded_puzzle);
             println!("{puzzle}");
@@ -27,7 +27,30 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
         "save" => {
             let json = serde_json::to_string(&puzzle)?;
             let file = args.first().ok_or(Error::Usage(Usage::Save))?;
-            fs::write(file, json)?;
+            std::fs::write(file, json)?;
+            Ok(())
+        }
+        "t" | "tube" => {
+            let size = puzzle.size();
+            for w in args.windows(2).step_by(2) {
+                let [i, water]: [&str; 2] = w.try_into().unwrap();
+                let tube = i.parse::<usize>().map_err(|_| Error::Usage(Usage::Tube))?;
+                if tube >= size {
+                    return Err(Error::InvalidTubeNumber(size));
+                }
+                for (idx, colour) in water.split(',').enumerate() {
+                    match Water::try_from(colour) {
+                        Ok(col) => {
+                            puzzle.set_tube(tube, idx, state::State::Water(col));
+                            Ok(())
+                        }
+                        Err(water::ParseError::Empty) => Err(Error::Usage(Usage::Tube)),
+                        Err(water::ParseError::UnknownColour) => {
+                            Err(Error::UnknownWaterColour(colour.to_owned()))
+                        }
+                    }?;
+                }
+            }
             Ok(())
         }
         "u" | "unset" => {
@@ -47,7 +70,7 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
             match (
                 parse_int(args.first()),
                 parse_int(args.get(1)),
-                water::Water::try_from(args.get(2)),
+                Water::try_from(args.get(2)),
             ) {
                 (Some(tube), Some(idx), Ok(colour)) if tube < size && idx < 4 => {
                     puzzle.set_tube(tube, idx, state::State::Water(colour));

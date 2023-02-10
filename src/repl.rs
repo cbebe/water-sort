@@ -14,6 +14,7 @@ pub enum Usage {
     Save,
     Unset,
     Set,
+    Tube,
 }
 
 fn usage(u: &Usage, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -24,6 +25,7 @@ fn usage(u: &Usage, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Usage::Save => f.write_str("save <file>"),
         Usage::Unset => f.write_str("unset <tube> <idx>"),
         Usage::Set => f.write_str("set <tube> <idx> <colour>"),
+        Usage::Tube => f.write_str("tube [<tube> <colours>]+"),
     }
 }
 
