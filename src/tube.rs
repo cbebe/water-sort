@@ -24,12 +24,13 @@ impl Tube {
     }
 
     fn num_to_pour(self) -> usize {
-        let (top, num_free) = (self.top(), self.num_free());
-        if let State::Water(w) = top {
-            let mut to_pour = 0;
-            for i in num_free..4 {
+        if let State::Water(w) = self.top() {
+            let mut to_pour = 1;
+            for i in (self.num_free() + 1)..4 {
                 if matches!(self.t[i], State::Water(other) if other == w) {
                     to_pour += 1;
+                } else {
+                    break;
                 }
             }
             to_pour
@@ -55,10 +56,21 @@ impl Tube {
 
     pub fn can_pour_to(self, other: Self) -> bool {
         match (self.top(), other.top()) {
-            (State::Empty, _) => false,
+            (State::Unknown | State::Empty, _) | (_, State::Unknown) => false,
             (_, State::Empty) => true,
             (a, b) if a == b => self.num_to_pour() <= other.num_free(),
             (_, _) => false,
+        }
+    }
+
+    pub fn pour_to(&mut self, other: &mut Self) {
+        if let State::Water(colour) = self.top() {
+            dbg!(self.num_free(), self.num_to_pour());
+            for i in self.num_free()..(self.num_free() + self.num_to_pour()) {
+                self.t[i] = State::Empty;
+                // This requires recalculation every time but it works better
+                other.t[other.num_free() - 1] = State::Water(colour);
+            }
         }
     }
 
@@ -160,5 +172,46 @@ mod tests {
         b.set(2, Unknown);
         b.set(3, Unknown);
         assert!(a.cannot_pour_to(b));
+    }
+
+    #[test]
+    fn test_pour_to_empty() {
+        let (mut a, mut b) = (Tube::empty(), Tube::empty());
+
+        a.set(3, Water(Blue));
+        a.pour_to(&mut b);
+
+        assert_eq!(b.t[3], Water(Blue));
+    }
+
+    #[test]
+    fn test_pour_to_half() {
+        let (mut a, mut b) = (Tube::empty(), Tube::empty());
+
+        a.set(2, Water(Blue));
+        a.set(3, Water(Blue));
+
+        let to_pour = a.num_to_pour();
+        a.pour_to(&mut b);
+
+        assert_eq!(b.num_to_pour(), to_pour);
+        assert_eq!(b.t[2], Water(Blue));
+        assert_eq!(b.t[3], Water(Blue));
+    }
+
+    #[test]
+    fn test_pour_one_to_empty() {
+        let (mut a, mut b) = (Tube::empty(), Tube::empty());
+
+        a.set(0, Water(Blue));
+        a.set(1, Unknown);
+        a.set(2, Unknown);
+        a.set(3, Unknown);
+
+        let to_pour = a.num_to_pour();
+        a.pour_to(&mut b);
+
+        assert_eq!(b.num_to_pour(), to_pour);
+        assert_eq!(b.t[3], Water(Blue));
     }
 }

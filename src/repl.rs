@@ -3,6 +3,7 @@ pub enum Error {
     InvalidPuzzleSize,
     Usage(Usage),
     InvalidTubeNumber(usize),
+    InvalidPour(usize, usize),
     InvalidIndex,
     UnrecognizedCommand(String),
     UnknownWaterColour(String),
@@ -39,6 +40,7 @@ impl std::fmt::Display for Error {
                 "tube number must be between 0 and {}",
                 size - 1
             )),
+            Self::InvalidPour(a, b) => f.write_fmt(format_args!("cannot pour from {a} to {b}")),
             Self::InvalidIndex => f.write_str("index must be between 0 and 3"),
             Self::UnrecognizedCommand(c) => f.write_fmt(format_args!("Unrecognized command: {c}")),
             Self::UnknownWaterColour(c) => f.write_fmt(format_args!("Unknown colour: {c}")),

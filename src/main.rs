@@ -53,6 +53,22 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
             }
             Ok(())
         }
+        "o" | "pour" => {
+            let size = puzzle.size();
+            match (parse_int(args.first()), parse_int(args.get(1))) {
+                (Some(a), Some(b)) if a < size && b < size => {
+                    if puzzle.pour(a, b) {
+                        Ok(())
+                    } else {
+                        Err(Error::InvalidPour(a, b))
+                    }
+                }
+                (Some(tube), _) if tube >= size => Err(Error::InvalidTubeNumber(size)),
+                (_, Some(tube)) if tube >= size => Err(Error::InvalidTubeNumber(size)),
+                (_, Some(idx)) if idx >= 4 => Err(Error::InvalidIndex),
+                (_, _) => Err(Error::Usage(Usage::Unset)),
+            }
+        }
         "u" | "unset" => {
             let size = puzzle.size();
             match (parse_int(args.first()), parse_int(args.get(1))) {

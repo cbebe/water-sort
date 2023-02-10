@@ -25,6 +25,18 @@ impl Puzzle {
         Self(tubes)
     }
 
+    pub fn pour(&mut self, from: usize, to: usize) -> bool {
+        if self.0[from].cannot_pour_to(self.0[to]) {
+            return false;
+        }
+
+        let mut to_tube = self.0[to];
+        // TODO: Make this a Result
+        self.0[from].pour_to(&mut to_tube);
+        self.0[to] = to_tube;
+        true
+    }
+
     pub fn set_tube(&mut self, tube: usize, idx: usize, state: crate::state::State) {
         self.0[tube].set(idx, state);
     }
