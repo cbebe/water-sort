@@ -16,15 +16,22 @@ pub enum Water {
 
 pub enum ParseError {
     Empty,
-    UnknownColour,
+    UnknownColour(String),
+}
+
+impl TryFrom<&String> for Water {
+    type Error = ParseError;
+
+    fn try_from(v: &String) -> Result<Self, Self::Error> {
+        Self::try_from(v.as_str())
+    }
 }
 
 impl TryFrom<Option<&&str>> for Water {
     type Error = ParseError;
 
     fn try_from(v: Option<&&str>) -> Result<Self, Self::Error> {
-        v.ok_or(ParseError::Empty)
-            .and_then(<&&str as TryInto<Self>>::try_into)
+        v.ok_or(ParseError::Empty).and_then(Self::try_from)
     }
 }
 
@@ -33,19 +40,19 @@ impl TryFrom<&str> for Water {
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "a" | "ash" => Ok(Self::Ash),
+            "a" | "ash" | "G" | "grey" | "gray" | "gr" => Ok(Self::Ash),
             "b" | "bl" | "blue" => Ok(Self::Blue),
-            "br" | "brown" => Ok(Self::Brown),
+            "B" | "br" | "brown" => Ok(Self::Brown),
             "c" | "cy" | "cyan" => Ok(Self::Cyan),
             "g" | "green" => Ok(Self::Green),
             "l" | "lime" => Ok(Self::Lime),
-            "ol" | "olive" => Ok(Self::Olive),
+            "O" | "ol" | "olive" => Ok(Self::Olive),
             "o" | "or" => Ok(Self::Orange),
             "p" | "pi" | "pink" => Ok(Self::Pink),
-            "pu" | "purple" => Ok(Self::Purple),
+            "P" | "pu" | "purple" => Ok(Self::Purple),
             "r" | "red" => Ok(Self::Red),
             "y" | "yellow" => Ok(Self::Yellow),
-            _ => Err(Self::Error::UnknownColour),
+            s => Err(Self::Error::UnknownColour(s.to_owned())),
         }
     }
 }

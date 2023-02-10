@@ -30,25 +30,38 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
             std::fs::write(file, json)?;
             Ok(())
         }
+        "tt" => {
+            let size = puzzle.size();
+            for i in args.iter() {
+                let tube = i
+                    .chars()
+                    .next()
+                    .and_then(|d| d.to_digit(10))
+                    .and_then(|d| d.try_into().ok())
+                    .ok_or(Error::Usage(Usage::QuickTube))?;
+                if tube >= size {
+                    return Err(Error::InvalidTube(size));
+                }
+                for (idx, j) in i.chars().skip(1).enumerate() {
+                    let c = Water::try_from(j.to_string().as_str())
+                        .map_err(|e| Error::from_water(e, Usage::QuickTube))?;
+                    puzzle.set_tube(tube, idx, state::State::Water(c));
+                }
+            }
+            Ok(())
+        }
         "t" | "tube" => {
             let size = puzzle.size();
             for w in args.windows(2).step_by(2) {
-                let [i, water]: [&str; 2] = w.try_into().unwrap();
+                let [i, water]: [&str; 2] = w.try_into().map_err(|_| Error::Usage(Usage::Tube))?;
                 let tube = i.parse::<usize>().map_err(|_| Error::Usage(Usage::Tube))?;
                 if tube >= size {
-                    return Err(Error::InvalidTubeNumber(size));
+                    return Err(Error::InvalidTube(size));
                 }
                 for (idx, colour) in water.split(',').enumerate() {
-                    match Water::try_from(colour) {
-                        Ok(col) => {
-                            puzzle.set_tube(tube, idx, state::State::Water(col));
-                            Ok(())
-                        }
-                        Err(water::ParseError::Empty) => Err(Error::Usage(Usage::Tube)),
-                        Err(water::ParseError::UnknownColour) => {
-                            Err(Error::UnknownWaterColour(colour.to_owned()))
-                        }
-                    }?;
+                    let col =
+                        Water::try_from(colour).map_err(|e| Error::from_water(e, Usage::Tube))?;
+                    puzzle.set_tube(tube, idx, state::State::Water(col));
                 }
             }
             Ok(())
@@ -63,42 +76,21 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                         Err(Error::InvalidPour(a, b))
                     }
                 }
-                (Some(tube), _) if tube >= size => Err(Error::InvalidTubeNumber(size)),
-                (_, Some(tube)) if tube >= size => Err(Error::InvalidTubeNumber(size)),
+                (Some(tube), _) if tube >= size => Err(Error::InvalidTube(size)),
+                (_, Some(tube)) if tube >= size => Err(Error::InvalidTube(size)),
                 (_, Some(idx)) if idx >= 4 => Err(Error::InvalidIndex),
                 (_, _) => Err(Error::Usage(Usage::Unset)),
             }
         }
-        "u" | "unset" => {
-            let size = puzzle.size();
-            match (parse_int(args.first()), parse_int(args.get(1))) {
-                (Some(tube), Some(idx)) if tube < size && idx < 4 => {
-                    puzzle.set_tube(tube, idx, state::State::Empty);
-                    Ok(())
-                }
-                (Some(tube), _) if tube >= size => Err(Error::InvalidTubeNumber(size)),
-                (_, Some(idx)) if idx >= 4 => Err(Error::InvalidIndex),
-                (_, _) => Err(Error::Usage(Usage::Unset)),
-            }
-        }
+        "u" | "unset" => set_tube(puzzle.size(), args, Usage::Unset, |tube, idx| {
+            puzzle.set_tube(tube, idx, state::State::Empty);
+        }),
         "s" | "set" => {
-            let size = puzzle.size();
-            match (
-                parse_int(args.first()),
-                parse_int(args.get(1)),
-                Water::try_from(args.get(2)),
-            ) {
-                (Some(tube), Some(idx), Ok(colour)) if tube < size && idx < 4 => {
-                    puzzle.set_tube(tube, idx, state::State::Water(colour));
-                    Ok(())
-                }
-                (Some(tube), _, _) if tube >= size => Err(Error::InvalidTubeNumber(size)),
-                (_, Some(idx), _) if idx >= 4 => Err(Error::InvalidIndex),
-                (_, _, Err(water::ParseError::UnknownColour)) => {
-                    Err(Error::UnknownWaterColour(args[2].to_owned()))
-                }
-                (_, _, _) => Err(Error::Usage(Usage::Set)),
-            }
+            let colour =
+                Water::try_from(args.get(2)).map_err(|e| Error::from_water(e, Usage::Set))?;
+            set_tube(puzzle.size(), args, Usage::Set, |tube, idx| {
+                puzzle.set_tube(tube, idx, state::State::Water(colour));
+            })
         }
         "p" | "print" => {
             println!("{puzzle}");
@@ -156,4 +148,19 @@ fn main() -> rustyline::Result<()> {
 
 fn parse_int(i: Option<&&str>) -> Option<usize> {
     i.and_then(|s| s.parse::<usize>().ok())
+}
+
+fn set_tube<F>(size: usize, args: &[&str], usage: repl::Usage, mut cb: F) -> Result<(), Error>
+where
+    F: FnMut(usize, usize),
+{
+    match (parse_int(args.first()), parse_int(args.get(1))) {
+        (Some(tube), Some(idx)) if tube < size && idx < 4 => {
+            cb(tube, idx);
+            Ok(())
+        }
+        (Some(tube), _) if tube >= size => Err(Error::InvalidTube(size)),
+        (_, Some(idx)) if idx >= 4 => Err(Error::InvalidIndex),
+        (_, _) => Err(Error::Usage(usage)),
+    }
 }

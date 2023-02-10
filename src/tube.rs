@@ -65,7 +65,6 @@ impl Tube {
 
     pub fn pour_to(&mut self, other: &mut Self) {
         if let State::Water(colour) = self.top() {
-            dbg!(self.num_free(), self.num_to_pour());
             for i in self.num_free()..(self.num_free() + self.num_to_pour()) {
                 self.t[i] = State::Empty;
                 // This requires recalculation every time but it works better
