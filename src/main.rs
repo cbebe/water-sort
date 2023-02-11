@@ -36,7 +36,7 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                 let tube = i
                     .chars()
                     .next()
-                    .and_then(|d| d.to_digit(10))
+                    .and_then(|d| d.to_digit(16))
                     .and_then(|d| d.try_into().ok())
                     .ok_or(Error::Usage(Usage::QuickTube))?;
                 if tube >= size {
