@@ -1,7 +1,7 @@
 use rustyline::{self, error::ReadlineError, Editor};
 
 use repl::{Error, Usage};
-use solve::solve_puzzle;
+use solve::dfs_puzzle;
 use water::Water;
 
 mod puzzle;
@@ -11,6 +11,35 @@ mod state;
 mod tube;
 mod water;
 
+fn load_file(puzzle: &mut puzzle::Puzzle, args: &[&str]) -> Result<(), Error> {
+    let file = args.first().ok_or(Error::Usage(Usage::Load))?;
+    let json = std::fs::read_to_string(file)?;
+    let loaded_puzzle = serde_json::from_str::<puzzle::Puzzle>(&json)?;
+    puzzle.reset(loaded_puzzle);
+    Ok(println!("{puzzle}"))
+}
+
+fn quick_tube(puzzle: &mut puzzle::Puzzle, args: &[&str]) -> Result<(), Error> {
+    let size = puzzle.size();
+    for i in args.iter() {
+        let tube = i
+            .chars()
+            .next()
+            .and_then(|d| d.to_digit(16))
+            .and_then(|d| d.try_into().ok())
+            .ok_or(Error::Usage(Usage::QuickTube))?;
+        if tube >= size {
+            return Err(Error::InvalidTube(tube, size));
+        }
+        for (idx, j) in i.chars().skip(1).enumerate() {
+            let c = Water::try_from(j.to_string().as_str())
+                .map_err(|e| Error::from_water(e, Usage::QuickTube))?;
+            puzzle.set_tube(tube, idx, state::State::Water(c));
+        }
+    }
+    Ok(())
+}
+
 fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) -> Result<(), Error> {
     match command {
         "i" | "init" => {
@@ -19,55 +48,23 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                 .then(|| puzzle.reset(puzzle::Puzzle::new(size)))
                 .ok_or(Error::InvalidPuzzleSize)
         }
-        "load" => {
-            let file = args.first().ok_or(Error::Usage(Usage::Load))?;
-            let json = std::fs::read_to_string(file)?;
-            let loaded_puzzle = serde_json::from_str::<puzzle::Puzzle>(&json)?;
-            puzzle.reset(loaded_puzzle);
-            println!("{puzzle}");
-            Ok(())
-        }
-        "solve" => {
-            if let Some(moves) = solve_puzzle(&puzzle) {
-                println!("{}", moves);
-            } else {
-                println!("cannot be solved...");
-            }
-            Ok(())
-        }
-        "save" => {
-            let json = serde_json::to_string(&puzzle)?;
-            let file = args.first().ok_or(Error::Usage(Usage::Save))?;
-            std::fs::write(file, json)?;
-            Ok(())
-        }
-        "tt" => {
-            let size = puzzle.size();
-            for i in args.iter() {
-                let tube = i
-                    .chars()
-                    .next()
-                    .and_then(|d| d.to_digit(16))
-                    .and_then(|d| d.try_into().ok())
-                    .ok_or(Error::Usage(Usage::QuickTube))?;
-                if tube >= size {
-                    return Err(Error::InvalidTube(size));
-                }
-                for (idx, j) in i.chars().skip(1).enumerate() {
-                    let c = Water::try_from(j.to_string().as_str())
-                        .map_err(|e| Error::from_water(e, Usage::QuickTube))?;
-                    puzzle.set_tube(tube, idx, state::State::Water(c));
-                }
-            }
-            Ok(())
-        }
+        "load" => load_file(puzzle, args),
+        "solve" => Ok(dfs_puzzle(puzzle).map_or_else(
+            || println!("cannot be solved..."),
+            |moves| println!("{moves}"),
+        )),
+        "save" => Ok(std::fs::write(
+            args.first().ok_or(Error::Usage(Usage::Save))?,
+            serde_json::to_string(puzzle)?,
+        )?),
+        "tt" => quick_tube(puzzle, args),
         "t" | "tube" => {
             let size = puzzle.size();
             for w in args.windows(2).step_by(2) {
-                let [i, water]: [&str; 2] = w.try_into().map_err(|_| Error::Usage(Usage::Tube))?;
-                let tube = i.parse::<usize>().map_err(|_| Error::Usage(Usage::Tube))?;
+                let [i, water]: [&str; 2] = w.try_into().or(Err(Error::Usage(Usage::Tube)))?;
+                let tube = i.parse::<usize>().or(Err(Error::Usage(Usage::Tube)))?;
                 if tube >= size {
-                    return Err(Error::InvalidTube(size));
+                    return Err(Error::InvalidTube(tube, size));
                 }
                 for (idx, colour) in water.split(',').enumerate() {
                     let col =
@@ -77,24 +74,23 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
             }
             Ok(())
         }
-        "o" | "pour" => {
+        "p" | "pour" => {
             let size = puzzle.size();
             match (parse_int(args.first()), parse_int(args.get(1))) {
                 (Some(a), Some(b)) if a < size && b < size => {
-                    if puzzle.pour(a, b) {
-                        Ok(())
-                    } else {
-                        Err(Error::InvalidPour(a, b))
-                    }
+                    puzzle.pour(a, b).or(Err(Error::InvalidPour(a, b)))
                 }
-                (Some(tube), _) if tube >= size => Err(Error::InvalidTube(size)),
-                (_, Some(tube)) if tube >= size => Err(Error::InvalidTube(size)),
+                (Some(tube), _) if tube >= size => Err(Error::InvalidTube(tube, size)),
+                (_, Some(tube)) if tube >= size => Err(Error::InvalidTube(tube, size)),
                 (_, Some(idx)) if idx >= 4 => Err(Error::InvalidIndex),
-                (_, _) => Err(Error::Usage(Usage::Unset)),
+                (_, _) => Err(Error::Usage(Usage::Pour)),
             }
         }
         "u" | "unset" => set_tube(puzzle.size(), args, Usage::Unset, |tube, idx| {
-            puzzle.set_tube(tube, idx, state::State::Empty);
+            puzzle.set_tube(tube, idx, state::State::Unknown);
+        }),
+        "e" | "empty" => set_tube(puzzle.size(), args, Usage::Empty, |tube, idx| {
+            puzzle.set_tube(tube, idx, state::State::Empty)
         }),
         "s" | "set" => {
             let colour =
@@ -103,14 +99,8 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                 puzzle.set_tube(tube, idx, state::State::Water(colour));
             })
         }
-        "p" | "print" => {
-            println!("{puzzle}");
-            Ok(())
-        }
-        "v" | "valid" => {
-            println!("{}", puzzle.valid_moves());
-            Ok(())
-        }
+        "d" | "display" => Ok(println!("{puzzle}")),
+        "v" | "valid" => Ok(println!("{}", puzzle.valid_moves())),
         a => Err(Error::UnrecognizedCommand(a.to_owned())),
     }
 }
@@ -174,7 +164,7 @@ where
             cb(tube, idx);
             Ok(())
         }
-        (Some(tube), _) if tube >= size => Err(Error::InvalidTube(size)),
+        (Some(tube), _) if tube >= size => Err(Error::InvalidTube(tube, size)),
         (_, Some(idx)) if idx >= 4 => Err(Error::InvalidIndex),
         (_, _) => Err(Error::Usage(usage)),
     }

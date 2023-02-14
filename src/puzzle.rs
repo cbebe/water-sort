@@ -19,7 +19,10 @@ impl std::fmt::Display for Puzzle {
 pub struct ValidMoves(pub Vec<(usize, usize)>);
 
 impl ValidMoves {
-    pub fn to_owned(self) -> Vec<(usize, usize)> {
+    // rustc: destructor of `ValidMoves` cannot be evaluated at compile-time
+    // the destructor for this type cannot be evaluated in constant functions
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn get(self) -> Vec<(usize, usize)> {
         self.0
     }
 }
@@ -37,6 +40,8 @@ impl std::fmt::Display for ValidMoves {
         )
     }
 }
+
+pub struct InvalidMove;
 
 impl Puzzle {
     pub fn new(size: usize) -> Self {
@@ -68,16 +73,16 @@ impl Puzzle {
         ValidMoves(valid)
     }
 
-    pub fn pour(&mut self, from: usize, to: usize) -> bool {
+    pub fn pour(&mut self, from: usize, to: usize) -> Result<(), InvalidMove> {
         if self.0[from].cannot_pour_to(self.0[to]) {
-            return false;
+            return Err(InvalidMove);
         }
 
         let mut to_tube = self.0[to];
         // TODO: Make this a Result
         self.0[from].pour_to(&mut to_tube);
         self.0[to] = to_tube;
-        true
+        Ok(())
     }
 
     #[allow(dead_code)]

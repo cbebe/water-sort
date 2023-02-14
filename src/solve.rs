@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 pub struct PuzzleState(pub Puzzle, pub (usize, usize));
 
-pub fn solve_puzzle(p: &Puzzle) -> Option<ValidMoves> {
+pub fn dfs_puzzle(p: &Puzzle) -> Option<ValidMoves> {
     if p.is_solved() {
         return None;
     }
@@ -11,17 +11,16 @@ pub fn solve_puzzle(p: &Puzzle) -> Option<ValidMoves> {
     let mut arena: Arena<PuzzleState> = Arena { nodes: vec![] };
     let mut stack: VecDeque<NodeId> = VecDeque::new();
 
-    for m in p.valid_moves().to_owned().iter() {
+    for m in &p.valid_moves().get() {
         let mut new_p = p.clone();
         new_p.pour(m.0, m.1);
-        let id = arena.new_node(PuzzleState(new_p.to_owned(), m.clone()), None);
+        let id = arena.new_node(PuzzleState(new_p.clone(), *m), None);
 
         stack.push_back(id);
     }
 
-    // let mut i = 0;
     while let Some(id) = stack.pop_back() {
-        let puzzle = dbg!(arena.get(id).data.0.clone());
+        let puzzle = arena.get(id).data.0.clone();
         if puzzle.is_solved() {
             let mut curr = id;
 
@@ -36,20 +35,16 @@ pub fn solve_puzzle(p: &Puzzle) -> Option<ValidMoves> {
             return Some(ValidMoves(moves));
         }
 
-        let moves = dbg!(puzzle.valid_moves().to_owned());
-        // i += 1;
-        // if i == 10 {
-        //     panic!("done");
-        // }
+        let moves = puzzle.valid_moves().get();
         if moves.is_empty() {
             arena.remove(id);
             continue;
         }
 
-        for m in moves.iter() {
+        for m in &moves {
             let mut new_p = puzzle.clone();
             new_p.pour(m.0, m.1);
-            let child_id = arena.new_node(PuzzleState(new_p.to_owned(), m.clone()), Some(id));
+            let child_id = arena.new_node(PuzzleState(new_p.clone(), *m), Some(id));
             stack.push_back(child_id);
         }
     }
@@ -94,11 +89,10 @@ impl<T> Arena<T> {
 #[cfg(test)]
 mod solve_test {
     use crate::puzzle::Puzzle;
-    use crate::solve::solve_puzzle;
+    use crate::solve::dfs_puzzle;
     use crate::state::State::Water;
     use crate::water::Water::{Blue, Green, Red};
 
-    #[ignore]
     #[test]
     fn test_solve() {
         let mut p = Puzzle::new(5);
@@ -106,10 +100,6 @@ mod solve_test {
         p.set_whole_tube(1, [Water(Blue), Water(Blue), Water(Red), Water(Green)]);
         p.set_whole_tube(2, [Water(Blue), Water(Red), Water(Red), Water(Green)]);
 
-        if let Some(v) = solve_puzzle(&p) {
-            dbg!(v.to_owned());
-        } else {
-            panic!("did not find a solution")
-        }
+        assert!(matches!(dfs_puzzle(&p), Some(_)));
     }
 }
