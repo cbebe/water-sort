@@ -1,9 +1,11 @@
 use repl::{Error, Usage};
 use rustyline::{self, error::ReadlineError, Editor};
+use solve::solve_puzzle;
 use water::Water;
 
 mod puzzle;
 mod repl;
+mod solve;
 mod state;
 mod tube;
 mod water;
@@ -22,6 +24,14 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
             let loaded_puzzle = serde_json::from_str::<puzzle::Puzzle>(&json)?;
             puzzle.reset(loaded_puzzle);
             println!("{puzzle}");
+            Ok(())
+        }
+        "solve" => {
+            if let Some(moves) = solve_puzzle(&puzzle) {
+                println!("{}", moves);
+            } else {
+                println!("cannot be solved...");
+            }
             Ok(())
         }
         "save" => {
@@ -94,6 +104,10 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
         }
         "p" | "print" => {
             println!("{puzzle}");
+            Ok(())
+        }
+        "v" | "valid" => {
+            println!("{}", puzzle.valid_moves());
             Ok(())
         }
         a => Err(Error::UnrecognizedCommand(a.to_owned())),

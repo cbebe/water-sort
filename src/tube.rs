@@ -23,7 +23,7 @@ impl Tube {
         self.t[idx]
     }
 
-    fn num_to_pour(self) -> usize {
+    pub fn num_to_pour(self) -> usize {
         if let State::Water(w) = self.top() {
             let mut to_pour = 1;
             for i in (self.num_free() + 1)..4 {
@@ -39,7 +39,7 @@ impl Tube {
         }
     }
 
-    const fn num_free(self) -> usize {
+    pub const fn num_free(self) -> usize {
         use State::Empty as E;
         match (self.t[0], self.t[1], self.t[2], self.t[3]) {
             (E, E, E, E) => 4,

@@ -1,4 +1,4 @@
-#[derive(Default, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct Puzzle(Vec<crate::tube::Tube>);
 
 impl std::fmt::Display for Puzzle {
@@ -16,6 +16,28 @@ impl std::fmt::Display for Puzzle {
     }
 }
 
+pub struct ValidMoves(pub Vec<(usize, usize)>);
+
+impl ValidMoves {
+    pub fn to_owned(self) -> Vec<(usize, usize)> {
+        self.0
+    }
+}
+
+impl std::fmt::Display for ValidMoves {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.0
+                .iter()
+                .map(|i| format!("({}, {})", i.0, i.1))
+                .collect::<Vec<String>>()
+                .join(", "),
+        )
+    }
+}
+
 impl Puzzle {
     pub fn new(size: usize) -> Self {
         let mut tubes = vec![crate::tube::Tube::default(); size - 2];
@@ -23,6 +45,27 @@ impl Puzzle {
         tubes.push(crate::tube::Tube::empty());
         tubes.push(crate::tube::Tube::empty());
         Self(tubes)
+    }
+
+    pub fn is_solved(&self) -> bool {
+        self.0
+            .iter()
+            .all(|t| t.num_to_pour() == 4 || t.num_free() == 4)
+    }
+
+    pub fn valid_moves(&self) -> ValidMoves {
+        let mut valid = vec![];
+        for i in 0..self.0.len() {
+            for j in 0..self.0.len() {
+                if i == j {
+                    continue;
+                }
+                if self.0[i].can_pour_to(self.0[j]) && self.0[i].num_to_pour() != 4 {
+                    valid.push((i, j));
+                }
+            }
+        }
+        ValidMoves(valid)
     }
 
     pub fn pour(&mut self, from: usize, to: usize) -> bool {
