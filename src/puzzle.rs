@@ -10,7 +10,7 @@ impl std::fmt::Display for Puzzle {
             size / 2 + 1
         };
         self.print_row(f, 0, mid)?;
-        f.write_str("-------------------------\n")?;
+        writeln!(f, "-------------------------")?;
         self.print_row(f, mid, size)?;
         Ok(())
     }
@@ -55,17 +55,17 @@ impl Puzzle {
         start: usize,
         end: usize,
     ) -> std::fmt::Result {
-        f.write_fmt(format_args!("{:2}", " "))?;
+        write!(f, "{:2}", " ")?;
         for tube in start..end - 1 {
-            f.write_fmt(format_args!("{tube:3}   "))?;
+            write!(f, "{tube:3}   ")?;
         }
-        f.write_fmt(format_args!("{:3}\n", end - 1))?;
+        writeln!(f, "{:3}", end - 1)?;
         for row in 0..4 {
-            f.write_fmt(format_args!("{row} "))?;
+            write!(f, "{row} ")?;
             for tube in start..end - 1 {
-                f.write_fmt(format_args!("|{}| ", self.0[tube].get(row)))?;
+                write!(f, "|{}| ", self.0[tube].get(row))?;
             }
-            f.write_fmt(format_args!("|{}|\n", self.0[end - 1].get(row)))?;
+            writeln!(f, "|{}|", self.0[end - 1].get(row))?;
         }
         Ok(())
     }

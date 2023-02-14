@@ -22,43 +22,34 @@ pub enum Usage {
 fn usage(u: &Usage, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.write_str("usage: ")?;
     match u {
-        Usage::Init => f.write_str("init <size>"),
-        Usage::Load => f.write_str("load <file>"),
-        Usage::Save => f.write_str("save <file>"),
-        Usage::Unset => f.write_str("unset <tube> <idx>"),
-        Usage::Set => f.write_str("set <tube> <idx> <colour>"),
-        Usage::Tube => f.write_str("tube [<tube> <colours>]+"),
-        Usage::QuickTube => f.write_str("tt [<idx>[<colour>]+]+"),
+        Usage::Init => write!(f, "init <size>"),
+        Usage::Load => write!(f, "load <file>"),
+        Usage::Save => write!(f, "save <file>"),
+        Usage::Unset => write!(f, "unset <tube> <idx>"),
+        Usage::Set => write!(f, "set <tube> <idx> <colour>"),
+        Usage::Tube => write!(f, "tube [<tube> <colours>]+"),
+        Usage::QuickTube => write!(f, "tt [<idx>[<colour>]+]+"),
     }
-}
-
-macro_rules! fprintf {
-    ($f:ident, $fmt: expr) => {
-        $f.write_fmt(format_args!($fmt))
-    };
-    ($f:ident, $fmt: expr, $($args: tt)*) => {
-        $f.write_fmt(format_args!($fmt, $($args)*))
-    };
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Message(m) => f.write_str(m),
-            Self::InvalidPuzzleSize => f.write_str("size must be greater than 2"),
+            Self::Message(m) => write!(f, "{m}"),
+            Self::InvalidPuzzleSize => write!(f, "size must be greater than 2"),
             Self::Usage(u) => usage(u, f),
-            Self::InvalidTube(size) => fprintf!(f, "tube must be between 0 and {}", size - 1),
-            Self::InvalidPour(a, b) => fprintf!(f, "cannot pour from {a} to {b}"),
-            Self::InvalidIndex => f.write_str("index must be between 0 and 3"),
-            Self::UnrecognizedCommand(c) => fprintf!(f, "Unrecognized command: {c}"),
-            Self::UnknownWaterColour(c) => fprintf!(f, "Unknown colour: {c}"),
+            Self::InvalidTube(size) => write!(f, "tube must be between 0 and {}", size - 1),
+            Self::InvalidPour(a, b) => write!(f, "cannot pour from {a} to {b}"),
+            Self::InvalidIndex => write!(f, "index must be between 0 and 3"),
+            Self::UnrecognizedCommand(c) => write!(f, "Unrecognized command: {c}"),
+            Self::UnknownWaterColour(c) => write!(f, "Unknown colour: {c}"),
         }
     }
 }
 
 impl Error {
     // e is a String
-    #[allow(clippy::nursery::missing_const_for_fn)]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn from_water(value: crate::water::ParseError, usage: Usage) -> Self {
         match value {
             crate::water::ParseError::Empty => Self::Usage(usage),
