@@ -80,6 +80,11 @@ impl Puzzle {
         true
     }
 
+    #[allow(dead_code)]
+    pub fn set_whole_tube(&mut self, tube: usize, state: [crate::state::State; 4]) {
+        self.0[tube].set_tube(state);
+    }
+
     pub fn set_tube(&mut self, tube: usize, idx: usize, state: crate::state::State) {
         self.0[tube].set(idx, state);
     }
@@ -111,5 +116,27 @@ impl Puzzle {
             writeln!(f, "|{}|", self.0[end - 1].get(row))?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod puzzle_test {
+    use super::*;
+    use crate::state::State::{Empty, Water};
+    use crate::water::Water::Red;
+    #[test]
+    fn test_is_solved() {
+        let mut p = Puzzle::new(3);
+        p.set_tube(0, 0, Empty);
+        p.set_tube(0, 1, Empty);
+        p.set_tube(0, 2, Water(Red));
+        p.set_tube(0, 3, Water(Red));
+        p.set_tube(1, 0, Empty);
+        p.set_tube(1, 1, Empty);
+        p.set_tube(1, 2, Water(Red));
+        p.set_tube(1, 3, Water(Red));
+        assert!(!p.is_solved());
+        p.pour(0, 1);
+        assert!(p.is_solved());
     }
 }

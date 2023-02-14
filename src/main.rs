@@ -1,5 +1,6 @@
-use repl::{Error, Usage};
 use rustyline::{self, error::ReadlineError, Editor};
+
+use repl::{Error, Usage};
 use solve::solve_puzzle;
 use water::Water;
 

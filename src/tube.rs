@@ -1,7 +1,7 @@
 use crate::state::State;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Tube {
     t: [State; 4],
     sticky: bool,
@@ -13,6 +13,10 @@ impl Tube {
             t: [State::Empty, State::Empty, State::Empty, State::Empty],
             sticky: false,
         }
+    }
+
+    pub fn set_tube(&mut self, t: [State; 4]) {
+        self.t = t;
     }
 
     pub fn set(&mut self, idx: usize, state: State) {
@@ -57,7 +61,13 @@ impl Tube {
     pub fn can_pour_to(self, other: Self) -> bool {
         match (self.top(), other.top()) {
             (State::Unknown | State::Empty, _) | (_, State::Unknown) => false,
-            (_, State::Empty) => true,
+            (_, State::Empty) => {
+                let mut new_self = self;
+                let mut new_other = other;
+                new_self.pour_to(&mut new_other);
+                // Prevents pour loops
+                new_self != other
+            }
             (a, b) if a == b => self.num_to_pour() <= other.num_free(),
             (_, _) => false,
         }
