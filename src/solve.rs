@@ -4,18 +4,22 @@ use std::collections::{HashSet, VecDeque};
 
 pub struct PuzzleState {
     pub puzzle: Puzzle,
-    pub played_move: (usize, usize),
+    pub played_move: (u8, u8),
     depth: usize,
 }
 
 pub enum NoSolution {
     AlreadySolved,
     CannotBeSolved(ValidMoves, usize),
+    HasUnknown(Puzzle, ValidMoves),
 }
 
 pub fn dfs_puzzle(p: &Puzzle) -> Result<ValidMoves, NoSolution> {
     if p.is_solved() {
         return Err(NoSolution::AlreadySolved);
+    }
+    if p.has_unknown() {
+        return Err(NoSolution::HasUnknown(p.clone(), ValidMoves(vec![])));
     }
 
     let mut arena: Arena<PuzzleState> = Arena::new();
@@ -23,7 +27,7 @@ pub fn dfs_puzzle(p: &Puzzle) -> Result<ValidMoves, NoSolution> {
 
     for m in &p.valid_moves().get() {
         let mut new_p = p.clone();
-        new_p.pour(m.0, m.1).unwrap();
+        new_p.pour(m.0.into(), m.1.into()).unwrap();
         let node = arena.new_node(PuzzleState {
             puzzle: new_p.clone(),
             played_move: *m,
@@ -42,7 +46,13 @@ pub fn dfs_puzzle(p: &Puzzle) -> Result<ValidMoves, NoSolution> {
         let node = &arena[id];
         let puzzle = node.data.puzzle.clone();
         if puzzle.is_solved() {
-            return Ok(get_solution(&arena, id));
+            return Ok(get_move_chain(&arena, id));
+        }
+        if p.has_unknown() {
+            return Err(NoSolution::HasUnknown(
+                p.clone(),
+                get_move_chain(&arena, id),
+            ));
         }
         if visited.contains(&puzzle) {
             continue;
@@ -52,8 +62,9 @@ pub fn dfs_puzzle(p: &Puzzle) -> Result<ValidMoves, NoSolution> {
         let moves = puzzle.valid_moves().get();
         if moves.is_empty() {
             if node.data.depth > max_depth {
-                max_moves = get_solution(&arena, id);
+                max_moves = get_move_chain(&arena, id);
                 max_depth = node.data.depth;
+                dbg!(max_depth);
             }
             arena.remove_node(id);
             continue;
@@ -61,7 +72,7 @@ pub fn dfs_puzzle(p: &Puzzle) -> Result<ValidMoves, NoSolution> {
 
         for m in &moves {
             let mut new_p = puzzle.clone();
-            new_p.pour(m.0, m.1).unwrap();
+            new_p.pour(m.0.into(), m.1.into()).unwrap();
             let child_id = arena.new_node(PuzzleState {
                 puzzle: new_p.clone(),
                 played_move: *m,
@@ -79,8 +90,8 @@ pub fn dfs_puzzle(p: &Puzzle) -> Result<ValidMoves, NoSolution> {
     Err(NoSolution::CannotBeSolved(max_moves, max_depth))
 }
 
-fn get_solution(arena: &Arena<PuzzleState>, id: NodeId) -> ValidMoves {
-    let mut moves: Vec<(usize, usize)> = id
+fn get_move_chain(arena: &Arena<PuzzleState>, id: NodeId) -> ValidMoves {
+    let mut moves: Vec<(u8, u8)> = id
         .ancestors(arena)
         .into_iter()
         .map(|d| arena[d].data.played_move)

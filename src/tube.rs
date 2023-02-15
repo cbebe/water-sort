@@ -83,7 +83,7 @@ impl Tube {
         }
     }
 
-    const fn top(self) -> State {
+    pub const fn top(self) -> State {
         use State::Empty as E;
         match (self.t[0], self.t[1], self.t[2], self.t[3]) {
             (E, E, E, s) | (E, E, s, _) | (E, s, _, _) | (s, _, _, _) => s,

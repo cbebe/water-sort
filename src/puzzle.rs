@@ -1,5 +1,7 @@
 use std::hash::Hash;
 
+use crate::state::State;
+
 #[derive(Default, Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub struct Puzzle(Vec<crate::tube::Tube>);
 
@@ -26,13 +28,13 @@ impl std::fmt::Display for Puzzle {
     }
 }
 
-pub struct ValidMoves(pub Vec<(usize, usize)>);
+pub struct ValidMoves(pub Vec<(u8, u8)>);
 
 impl ValidMoves {
     // rustc: destructor of `ValidMoves` cannot be evaluated at compile-time
     // the destructor for this type cannot be evaluated in constant functions
     #[allow(clippy::missing_const_for_fn)]
-    pub fn get(self) -> Vec<(usize, usize)> {
+    pub fn get(self) -> Vec<(u8, u8)> {
         self.0
     }
 }
@@ -66,6 +68,10 @@ impl Puzzle {
         Self(tubes)
     }
 
+    pub fn has_unknown(&self) -> bool {
+        self.0.iter().any(|t| t.top() == State::Unknown)
+    }
+
     pub fn is_solved(&self) -> bool {
         self.0
             .iter()
@@ -80,7 +86,7 @@ impl Puzzle {
                     continue;
                 }
                 if self.0[i].can_pour_to(self.0[j]) && self.0[i].num_to_pour() != 4 {
-                    valid.push((i, j));
+                    valid.push((i as u8, j as u8));
                 }
             }
         }

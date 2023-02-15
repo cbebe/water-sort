@@ -54,7 +54,12 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
             Err(NoSolution::AlreadySolved) => println!("already solved"),
             Err(NoSolution::CannotBeSolved(moves, max_depth)) => {
                 println!("cannot be solved... max depth: {max_depth}");
-                println!("{moves}")
+                println!("{moves}");
+            }
+            Err(NoSolution::HasUnknown(puzzle, moves)) => {
+                println!("cannot be solved... puzzle contains unknown");
+                println!("{puzzle}");
+                println!("{moves}");
             }
         }),
         "save" => Ok(std::fs::write(
