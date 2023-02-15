@@ -127,6 +127,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indextree-ng"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6f1d0e76b441a6a330354e61d6ae1ab661d5d1757ffb6c05b31afc46da6423d"
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -396,6 +402,7 @@ name = "water-sort"
 version = "0.1.0"
 dependencies = [
  "ansi_term",
+ "indextree-ng",
  "rustyline",
  "serde",
  "serde_json",

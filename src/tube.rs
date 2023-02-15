@@ -1,7 +1,7 @@
 use crate::state::State;
 use serde::{Deserialize, Serialize};
 
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct Tube {
     t: [State; 4],
     sticky: bool,
@@ -140,7 +140,8 @@ mod tests {
     #[test]
     fn test_can_pour_to_empty() {
         let (mut a, b) = (Tube::empty(), Tube::empty());
-        a.set(3, Water(Blue));
+        a.set(2, Water(Blue));
+        a.set(3, Unknown);
         assert!(a.can_pour_to(b));
     }
 
@@ -151,6 +152,14 @@ mod tests {
         a.set(3, Water(Blue));
         b.set(3, Water(Blue));
         assert!(a.can_pour_to(b));
+    }
+
+    #[test]
+    fn test_cannot_pour_idempotent() {
+        use crate::water::Water::Blue;
+        let (mut a, b) = (Tube::empty(), Tube::empty());
+        a.set(3, Water(Blue));
+        assert!(a.cannot_pour_to(b));
     }
 
     #[test]

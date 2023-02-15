@@ -1,4 +1,6 @@
-#[derive(Default, Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[derive(
+    Default, Clone, Copy, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq, Hash,
+)]
 pub enum State {
     #[default]
     Unknown,

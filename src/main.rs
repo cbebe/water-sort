@@ -1,7 +1,7 @@
 use rustyline::{self, error::ReadlineError, Editor};
 
 use repl::{Error, Usage};
-use solve::dfs_puzzle;
+use solve::{dfs_puzzle, NoSolution};
 use water::Water;
 
 mod puzzle;
@@ -49,10 +49,14 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                 .ok_or(Error::InvalidPuzzleSize)
         }
         "load" => load_file(puzzle, args),
-        "solve" => Ok(dfs_puzzle(puzzle).map_or_else(
-            || println!("cannot be solved..."),
-            |moves| println!("{moves}"),
-        )),
+        "solve" => Ok(match dfs_puzzle(puzzle) {
+            Ok(solution) => println!("{solution}"),
+            Err(NoSolution::AlreadySolved) => println!("already solved"),
+            Err(NoSolution::CannotBeSolved(moves, max_depth)) => {
+                println!("cannot be solved... max depth: {max_depth}");
+                println!("{moves}")
+            }
+        }),
         "save" => Ok(std::fs::write(
             args.first().ok_or(Error::Usage(Usage::Save))?,
             serde_json::to_string(puzzle)?,
@@ -77,9 +81,9 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
         "p" | "pour" => {
             let size = puzzle.size();
             match (parse_int(args.first()), parse_int(args.get(1))) {
-                (Some(a), Some(b)) if a < size && b < size => {
-                    puzzle.pour(a, b).or(Err(Error::InvalidPour(a, b)))
-                }
+                (Some(a), Some(b)) if a < size && b < size => puzzle
+                    .pour(a, b)
+                    .map_err(|e| Error::InvalidPour(e.from, e.to)),
                 (Some(tube), _) if tube >= size => Err(Error::InvalidTube(tube, size)),
                 (_, Some(tube)) if tube >= size => Err(Error::InvalidTube(tube, size)),
                 (_, Some(idx)) if idx >= 4 => Err(Error::InvalidIndex),

@@ -1,5 +1,15 @@
-#[derive(Default, Debug, serde::Serialize, serde::Deserialize, Clone)]
+use std::hash::Hash;
+
+#[derive(Default, Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub struct Puzzle(Vec<crate::tube::Tube>);
+
+impl Hash for Puzzle {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for i in self.0.iter() {
+            i.hash(state);
+        }
+    }
+}
 
 impl std::fmt::Display for Puzzle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -41,7 +51,11 @@ impl std::fmt::Display for ValidMoves {
     }
 }
 
-pub struct InvalidMove;
+#[derive(Debug)]
+pub struct InvalidMove {
+    pub from: usize,
+    pub to: usize,
+}
 
 impl Puzzle {
     pub fn new(size: usize) -> Self {
@@ -75,7 +89,7 @@ impl Puzzle {
 
     pub fn pour(&mut self, from: usize, to: usize) -> Result<(), InvalidMove> {
         if self.0[from].cannot_pour_to(self.0[to]) {
-            return Err(InvalidMove);
+            return Err(InvalidMove { from, to });
         }
 
         let mut to_tube = self.0[to];
@@ -141,7 +155,7 @@ mod puzzle_test {
         p.set_tube(1, 2, Water(Red));
         p.set_tube(1, 3, Water(Red));
         assert!(!p.is_solved());
-        p.pour(0, 1);
+        p.pour(0, 1).unwrap();
         assert!(p.is_solved());
     }
 }

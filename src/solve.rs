@@ -1,90 +1,93 @@
 use crate::puzzle::{Puzzle, ValidMoves};
-use std::collections::VecDeque;
+use indextree_ng::{Arena, NodeId};
+use std::collections::{HashSet, VecDeque};
 
-pub struct PuzzleState(pub Puzzle, pub (usize, usize));
+pub struct PuzzleState {
+    pub puzzle: Puzzle,
+    pub played_move: (usize, usize),
+    depth: usize,
+}
 
-pub fn dfs_puzzle(p: &Puzzle) -> Option<ValidMoves> {
+pub enum NoSolution {
+    AlreadySolved,
+    CannotBeSolved(ValidMoves, usize),
+}
+
+pub fn dfs_puzzle(p: &Puzzle) -> Result<ValidMoves, NoSolution> {
     if p.is_solved() {
-        return None;
+        return Err(NoSolution::AlreadySolved);
     }
 
-    let mut arena: Arena<PuzzleState> = Arena { nodes: vec![] };
+    let mut arena: Arena<PuzzleState> = Arena::new();
     let mut stack: VecDeque<NodeId> = VecDeque::new();
 
     for m in &p.valid_moves().get() {
         let mut new_p = p.clone();
-        new_p.pour(m.0, m.1);
-        let id = arena.new_node(PuzzleState(new_p.clone(), *m), None);
+        new_p.pour(m.0, m.1).unwrap();
+        let node = arena.new_node(PuzzleState {
+            puzzle: new_p.clone(),
+            played_move: *m,
+            depth: 0,
+        });
 
-        stack.push_back(id);
+        stack.push_back(node);
     }
 
+    let mut max_depth = 0;
+    let mut max_moves = ValidMoves(vec![]);
+
+    let mut visited = HashSet::<Puzzle>::new();
+
     while let Some(id) = stack.pop_back() {
-        let puzzle = arena.get(id).data.0.clone();
+        let node = &arena[id];
+        let puzzle = node.data.puzzle.clone();
         if puzzle.is_solved() {
-            let mut curr = id;
-
-            let mut moves: Vec<(usize, usize)> = vec![arena.get(curr).data.1];
-
-            while let Some(parent_id) = arena.get(curr).parent {
-                let node = arena.get(parent_id);
-                moves.push(node.data.1);
-                curr = parent_id;
-            }
-            moves.reverse();
-            return Some(ValidMoves(moves));
+            return Ok(get_solution(&arena, id));
         }
+        if visited.contains(&puzzle) {
+            continue;
+        }
+        visited.insert(puzzle.clone());
 
         let moves = puzzle.valid_moves().get();
         if moves.is_empty() {
-            arena.remove(id);
+            if node.data.depth > max_depth {
+                max_moves = get_solution(&arena, id);
+                max_depth = node.data.depth;
+            }
+            arena.remove_node(id);
             continue;
         }
 
         for m in &moves {
             let mut new_p = puzzle.clone();
-            new_p.pour(m.0, m.1);
-            let child_id = arena.new_node(PuzzleState(new_p.clone(), *m), Some(id));
-            stack.push_back(child_id);
+            new_p.pour(m.0, m.1).unwrap();
+            let child_id = arena.new_node(PuzzleState {
+                puzzle: new_p.clone(),
+                played_move: *m,
+                depth: arena[id].data.depth + 1,
+            });
+            match id.append(child_id, &mut arena) {
+                Ok(_) => stack.push_back(child_id),
+                Err(err) => {
+                    dbg!(err);
+                }
+            }
         }
     }
 
-    None
+    Err(NoSolution::CannotBeSolved(max_moves, max_depth))
 }
 
-// Arena {{{
-
-// https://rust-leipzig.github.io/architecture/2016/12/20/idiomatic-trees-in-rust/
-pub struct Arena<T> {
-    pub nodes: Vec<Node<T>>,
+fn get_solution(arena: &Arena<PuzzleState>, id: NodeId) -> ValidMoves {
+    let mut moves: Vec<(usize, usize)> = id
+        .ancestors(arena)
+        .into_iter()
+        .map(|d| arena[d].data.played_move)
+        .collect();
+    moves.reverse();
+    ValidMoves(moves)
 }
-
-pub struct Node<T> {
-    pub parent: Option<NodeId>,
-    pub data: T,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct NodeId {
-    index: usize,
-}
-
-impl<T> Arena<T> {
-    pub fn new_node(&mut self, data: T, parent: Option<NodeId>) -> NodeId {
-        let next_index = self.nodes.len();
-        self.nodes.push(Node { parent, data });
-        NodeId { index: next_index }
-    }
-
-    pub fn get(&self, id: NodeId) -> &Node<T> {
-        &self.nodes[id.index]
-    }
-
-    pub fn remove(&mut self, id: NodeId) {
-        self.nodes.remove(id.index);
-    }
-}
-// }}}
 
 #[cfg(test)]
 mod solve_test {
@@ -100,6 +103,6 @@ mod solve_test {
         p.set_whole_tube(1, [Water(Blue), Water(Blue), Water(Red), Water(Green)]);
         p.set_whole_tube(2, [Water(Blue), Water(Red), Water(Red), Water(Green)]);
 
-        assert!(matches!(dfs_puzzle(&p), Some(_)));
+        assert!(matches!(dfs_puzzle(&p), Ok(_)));
     }
 }
