@@ -11,9 +11,17 @@ mod state;
 mod tube;
 mod water;
 
+fn get_path(file: &str) -> String {
+    if file.ends_with(".json") {
+        file.to_string()
+    } else {
+        format!("data/{file}.json")
+    }
+}
+
 fn load_file(puzzle: &mut puzzle::Puzzle, args: &[&str]) -> Result<(), Error> {
-    let file = args.first().ok_or(Error::Usage(Usage::Load))?;
-    let json = std::fs::read_to_string(file)?;
+    let json_path = get_path(args.first().ok_or(Error::Usage(Usage::Load))?);
+    let json = std::fs::read_to_string(json_path)?;
     let loaded_puzzle = serde_json::from_str::<puzzle::Puzzle>(&json)?;
     puzzle.reset(loaded_puzzle);
     Ok(println!("{puzzle}"))
@@ -48,7 +56,7 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                 .then(|| puzzle.reset(puzzle::Puzzle::new(size)))
                 .ok_or(Error::InvalidPuzzleSize)
         }
-        "load" => load_file(puzzle, args),
+        "r" | "load" => load_file(puzzle, args),
         "solve" => Ok(match dfs_puzzle(puzzle) {
             Ok(solution) => println!("{solution}"),
             Err(NoSolution::AlreadySolved) => println!("already solved"),
@@ -62,8 +70,8 @@ fn process_command(puzzle: &mut puzzle::Puzzle, command: &str, args: &[&str]) ->
                 println!("{moves}");
             }
         }),
-        "save" => Ok(std::fs::write(
-            args.first().ok_or(Error::Usage(Usage::Save))?,
+        "w" | "save" => Ok(std::fs::write(
+            get_path(args.first().ok_or(Error::Usage(Usage::Save))?),
             serde_json::to_string(puzzle)?,
         )?),
         "tt" => quick_tube(puzzle, args),
