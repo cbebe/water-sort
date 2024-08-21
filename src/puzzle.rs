@@ -48,7 +48,7 @@ impl std::fmt::Display for ValidMoves {
                 .iter()
                 .map(|i| format!("({}, {})", i.0, i.1))
                 .collect::<Vec<String>>()
-                .join(", "),
+                .join("\n"),
         )
     }
 }
